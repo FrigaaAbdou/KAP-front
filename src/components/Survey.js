@@ -23,7 +23,6 @@ import {
 import axios from 'axios';
 import { useTheme, useMediaQuery } from '@mui/material';
 import styled from '@emotion/styled';
-import EmailInput from './EmailInput';
 
 const sections = ['Informations', 'Connaissances', 'Attitudes', 'Pratiques'];
 
@@ -321,7 +320,6 @@ function Survey() {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   const [language, setLanguage] = useState('fr');
-  const [isEmailValid, setIsEmailValid] = useState(false);
   const [formData, setFormData] = useState({
     // Section 1
     age: '',
@@ -363,15 +361,7 @@ function Survey() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const handleEmailValidation = (isValid) => {
-    setIsEmailValid(isValid);
-  };
-
   const handleNext = () => {
-    if (activeStep === 0 && !isEmailValid) {
-      return;
-    }
-
     if (activeStep === sections.length - 1) {
       const requiredFields = {
         section1: ['age', 'gender', 'education', 'profession', 'wilaya', 'medicalHistory'],
@@ -389,19 +379,6 @@ function Survey() {
       }
       handleSubmit();
     } else {
-      const currentSectionFields = {
-        0: ['age', 'gender', 'education', 'profession', 'wilaya', 'medicalHistory'],
-        1: ['K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'K7', 'K8'],
-        2: ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'],
-        3: ['previousDonation', 'futureIntention', 'encourageOthers']
-      };
-
-      const emptyFields = currentSectionFields[activeStep].filter(field => !formData[field]);
-
-      if (emptyFields.length > 0) {
-        alert('Veuillez remplir tous les champs obligatoires avant de continuer.');
-        return;
-      }
       setActiveStep((prevStep) => prevStep + 1);
     }
   };
@@ -435,21 +412,39 @@ function Survey() {
     }
   };
 
-  const handleSubmit = async () => {
+  const checkEmailExists = async (email) => {
     try {
-      console.log('Données envoyées:', { ...formData });
-      const response = await axios.post(`${API_URL}/responses`, {
+      const response = await axios.post(`${API_URL}/responses/check-email`, { email });
+      return response.data.exists;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  const handleSubmit = async () => {
+    const emailInput = document.querySelector('input[type="email"]');
+    const email = emailInput?.value?.trim();
+
+    if (!email) {
+      alert('Veuillez entrer votre email');
+      return;
+    }
+
+    // Check if email exists
+    const exists = await checkEmailExists(email);
+    if (exists) {
+      alert('Cet email a déjà été utilisé pour répondre au questionnaire');
+      return;
+    }
+
+    try {
+      await axios.post(`${API_URL}/responses`, {
         ...formData,
+        email,
         language
       });
-      console.log('Réponse du serveur:', response.data);
       navigate('/thank-you');
     } catch (error) {
-      console.error('Détails de l\'erreur:', {
-        message: error.message,
-        response: error.response?.data,
-        data: error.response?.data?.details
-      });
       alert(`Erreur lors de la soumission du formulaire: ${error.response?.data?.message || error.message}`);
     }
   };
@@ -769,6 +764,27 @@ function Survey() {
                 ))}
               </RadioGroup>
             </FormControl>
+
+            <Box sx={{ mt: 4, mb: 2 }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.secondary' }}>
+                Email pour validation
+              </Typography>
+              <input
+                type="email"
+                placeholder="Entrez un email se terminant par @example.com"
+                pattern=".+@example\.com$"
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  marginTop: '8px'
+                }}
+                title="L'email doit se terminer par @example.com"
+              />
+            </Box>
           </Box>
         );
 
@@ -776,11 +792,6 @@ function Survey() {
         return null;
     }
   };
-
-  // Update renderEmailField
-  const renderEmailField = () => (
-    <EmailInput onValidationChange={handleEmailValidation} />
-  );
 
   return (
     <Container maxWidth="md" sx={{ 
@@ -803,8 +814,6 @@ function Survey() {
           </FormControl>
         </Box>
 
-        {renderEmailField()}
-
         <StyledStepper 
           activeStep={activeStep} 
           sx={{ mb: { xs: 2, sm: 3, md: 4 } }}
@@ -821,21 +830,6 @@ function Survey() {
         <Box sx={{ 
           '& .MuiFormControl-root': { 
             mb: { xs: 1.5, sm: 2, md: 2.5 } 
-          },
-          '& .MuiFormLabel-root': {
-            fontSize: { xs: '0.9rem', sm: '1rem' }
-          },
-          '& .MuiRadio-root': {
-            padding: { xs: 0.5, sm: 1 }
-          },
-          '& .MuiFormControlLabel-label': {
-            fontSize: { xs: '0.9rem', sm: '1rem' }
-          },
-          '& .MuiSelect-select': {
-            fontSize: { xs: '0.9rem', sm: '1rem' }
-          },
-          '& .MuiMenuItem-root': {
-            fontSize: { xs: '0.9rem', sm: '1rem' }
           }
         }}>
           {renderStepContent(activeStep)}
@@ -859,7 +853,6 @@ function Survey() {
           <Button
             variant="contained"
             onClick={handleNext}
-            disabled={activeStep === 0 && !isEmailValid}
             fullWidth={isMobile}
           >
             {activeStep === sections.length - 1 ? 'Soumettre' : 'Suivant'}
