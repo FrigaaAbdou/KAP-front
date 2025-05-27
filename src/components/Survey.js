@@ -19,11 +19,11 @@ import {
   FormGroup,
   Select,
   MenuItem,
-  Alert,
 } from '@mui/material';
 import axios from 'axios';
 import { useTheme, useMediaQuery } from '@mui/material';
 import styled from '@emotion/styled';
+import EmailInput from './EmailInput';
 
 const sections = ['Informations', 'Connaissances', 'Attitudes', 'Pratiques'];
 
@@ -321,6 +321,7 @@ function Survey() {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(0);
   const [language, setLanguage] = useState('fr');
+  const [isEmailValid, setIsEmailValid] = useState(false);
   const [formData, setFormData] = useState({
     // Section 1
     age: '',
@@ -358,63 +359,20 @@ function Survey() {
     futureIntention: '',
     encourageOthers: ''
   });
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [isEmailValid, setIsEmailValid] = useState(false);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
-  const validateEmail = (email) => {
-    return /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email);
-  };
-
-  const checkEmailExists = async (email) => {
-    try {
-      const response = await axios.post(`${API_URL}/responses/check-email`, { email });
-      return response.data.exists;
-    } catch (error) {
-      console.error('Erreur lors de la vérification de l\'email:', error);
-      return false;
-    }
-  };
-
-  const handleEmailChange = async (event) => {
-    const newEmail = event.target.value;
-    setEmail(newEmail);
-    setEmailError('');
-
-    if (!newEmail) {
-      setEmailError('L\'email est requis');
-      setIsEmailValid(false);
-      return;
-    }
-
-    if (!validateEmail(newEmail)) {
-      setEmailError('Format d\'email invalide');
-      setIsEmailValid(false);
-      return;
-    }
-
-    const exists = await checkEmailExists(newEmail);
-    if (exists) {
-      setEmailError('Cet email a déjà été utilisé pour répondre au questionnaire');
-      setIsEmailValid(false);
-      return;
-    }
-
-    setIsEmailValid(true);
+  const handleEmailValidation = (isValid) => {
+    setIsEmailValid(isValid);
   };
 
   const handleNext = () => {
     if (activeStep === 0 && !isEmailValid) {
-      alert('Veuillez entrer une adresse email valide avant de continuer.');
       return;
     }
 
     if (activeStep === sections.length - 1) {
-      // Validation avant soumission
       const requiredFields = {
         section1: ['age', 'gender', 'education', 'profession', 'wilaya', 'medicalHistory'],
         section2: ['K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'K7', 'K8'],
@@ -478,16 +436,10 @@ function Survey() {
   };
 
   const handleSubmit = async () => {
-    if (!isEmailValid) {
-      alert('Veuillez entrer une adresse email valide avant de soumettre le formulaire.');
-      return;
-    }
-
     try {
-      console.log('Données envoyées:', { ...formData, email });
+      console.log('Données envoyées:', { ...formData });
       const response = await axios.post(`${API_URL}/responses`, {
         ...formData,
-        email,
         language
       });
       console.log('Réponse du serveur:', response.data);
@@ -498,10 +450,6 @@ function Survey() {
         response: error.response?.data,
         data: error.response?.data?.details
       });
-      if (error.response?.data?.code === 'EMAIL_EXISTS') {
-        setEmailError('Cet email a déjà été utilisé pour répondre au questionnaire');
-        setIsEmailValid(false);
-      }
       alert(`Erreur lors de la soumission du formulaire: ${error.response?.data?.message || error.message}`);
     }
   };
@@ -530,7 +478,6 @@ function Survey() {
   }));
 
   const renderStepContent = (step) => {
-    const currentSection = sections[step];
     const sectionQuestions = questions[language][`section${step + 1}`];
 
     switch (step) {
@@ -830,20 +777,9 @@ function Survey() {
     }
   };
 
-  // Add email field to the beginning of the form
+  // Update renderEmailField
   const renderEmailField = () => (
-    <Box sx={{ mb: 4 }}>
-      <TextField
-        fullWidth
-        required
-        label="Email"
-        type="email"
-        value={email}
-        onChange={handleEmailChange}
-        error={!!emailError}
-        helperText={emailError}
-      />
-    </Box>
+    <EmailInput onValidationChange={handleEmailValidation} />
   );
 
   return (
