@@ -4,8 +4,6 @@ import { ThemeProvider, createTheme } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 import Survey from './components/Survey';
 import ThankYou from './components/ThankYou';
-import EmailTest from './components/EmailTest';
-
 
 const theme = createTheme({
   direction: 'ltr',
@@ -27,7 +25,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Survey />} />
           <Route path="/thank-you" element={<ThankYou />} />
-          <Route path="/test" element={<EmailTest />} />
         </Routes>
       </Router>
     </ThemeProvider>
